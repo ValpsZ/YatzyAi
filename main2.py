@@ -97,6 +97,7 @@ X_ORDER = ["1", "small_straight", "large_straight", "2", "yatzy", "pair", "3", "
 LOSS_THRESHOLD = None
 
 g_cache = {}
+g_deep_cache = {}
 g_maxmax_calls = 0
 
 def maxmax(dice: list[int], game: Game, picker, depth: int, debug: int = 0) -> tuple[int, tuple[int]]:
@@ -141,10 +142,19 @@ def maxmax(dice: list[int], game: Game, picker, depth: int, debug: int = 0) -> t
     
     best_score = -1
     best_comb = None
-    for comb in comb_dices.keys():
+    i = 0
+    len_comb_dices = len(comb_dices)
+    for comb in reversed(comb_dices):
+        if depth == 2:
+            print(f"Comb: {comb} ({i+1}/{len_comb_dices})")
+        i += 1
         total_score = 0
         for new_dice in comb_dices[comb]:
-            result = maxmax(new_dice, game, picker, depth-1, debug=debug)
+            if tuple(new_dice) in g_deep_cache:
+                result = g_deep_cache[tuple(new_dice)]
+            else:
+                result = maxmax(new_dice, game, picker, depth-1, debug=debug)
+                g_deep_cache[tuple(new_dice)] = result
             total_score += result[0]
         avg_score = total_score / len(comb_dices[comb])
         if avg_score > best_score:
@@ -335,29 +345,30 @@ def test_maxmax():
     random.seed(seed)
     x_order = X_ORDER[:]
 
-    game = Game()
-    game.dice = [6,6,6,6,6]
-    game.scores["6"] = None
-    game.scores["pair"] = None
-    game.scores["three_of_a_kind"] = None
-    game.scores["four_of_a_kind"] = None
-    game.scores["yatzy"] = None
-    game.scores["two_pairs"] = None
-    game.scores["chance"] = None
-    print(f"Dice:       {game.dice}")
-    result = maxmax(game.dice, game, pick_max, 1)
-    print(f"E(x):       {result[0]}")
+    two_result = [0,0]
+    one_result = [0,0]
+    while two_result[1] == one_result[1]:
+        game = Game()
+        two_result = maxmax(game.dice, game, pick_max, 2)
+        one_result = maxmax(game.dice, game, pick_max, 1)
+
+    print(f"Dice: {game.dice}")
+    print("-" * 30)
+
+    print(f"E(x):       {two_result[0]}")
+
     rerolls = [0] * 5
-    for idx in result[1]:
+    for idx in two_result[1]:
         rerolls[idx] = 1
     print(f"Rerolls:    {rerolls}")
-    game.scores["1"] = 3
-    game.scores["2"] = 4
-    game.scores["3"] = 12
-    game.scores["4"] = 8
-    game.scores["5"] = 10
-    game.scores["6"] = 24
-    print(f"Top: {game.calcTop()}")
+
+
+    print(f"E(x):       {two_result[0]}")
+
+    rerolls = [0] * 5
+    for idx in two_result[1]:
+        rerolls[idx] = 1
+    print(f"Rerolls:    {rerolls}")
 
 def main():
     global X_ORDER
@@ -411,5 +422,5 @@ def main():
         print(f"Avg. time per run:  {(end - start) / (num_tests):.2f} seconds")
 
 if __name__ == "__main__":
-    main()
-    #test_maxmax()
+    #main()
+    test_maxmax()
